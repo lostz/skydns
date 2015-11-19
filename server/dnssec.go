@@ -51,6 +51,16 @@ func ParseKeyFile(file string) (*dns.DNSKEY, crypto.Signer, error) {
 // throw away signatures when services decide to have longer TTL. So we just
 // set the origTTL to 60.
 // TODO(miek): revisit origTTL
+func (s *server) isSubDomain(m string) bool {
+	for _, domain := range s.config.Domain {
+		if dns.IsSubDomain(domain, m) {
+			return true
+		}
+	}
+	return false
+
+}
+
 func (s *server) Sign(m *dns.Msg, bufsize uint16) {
 	now := time.Now().UTC()
 	incep := uint32(now.Add(-3 * time.Hour).Unix())     // 2+1 hours, be sure to catch daylight saving time and such
@@ -60,9 +70,10 @@ func (s *server) Sign(m *dns.Msg, bufsize uint16) {
 		if r[0].Header().Rrtype == dns.TypeRRSIG {
 			continue
 		}
-		if !dns.IsSubDomain(s.config.Domain, r[0].Header().Name) {
+		if !s.isSubDomain(r[0].Header().Name) {
 			continue
 		}
+
 		if sig, err := s.signSet(r, now, incep, expir); err == nil {
 			m.Answer = append(m.Answer, sig)
 		}
@@ -71,9 +82,10 @@ func (s *server) Sign(m *dns.Msg, bufsize uint16) {
 		if r[0].Header().Rrtype == dns.TypeRRSIG {
 			continue
 		}
-		if !dns.IsSubDomain(s.config.Domain, r[0].Header().Name) {
+		if !s.isSubDomain(r[0].Header().Name) {
 			continue
 		}
+
 		if sig, err := s.signSet(r, now, incep, expir); err == nil {
 			m.Ns = append(m.Ns, sig)
 		}
@@ -82,9 +94,10 @@ func (s *server) Sign(m *dns.Msg, bufsize uint16) {
 		if r[0].Header().Rrtype == dns.TypeRRSIG || r[0].Header().Rrtype == dns.TypeOPT {
 			continue
 		}
-		if !dns.IsSubDomain(s.config.Domain, r[0].Header().Name) {
+		if !s.isSubDomain(r[0].Header().Name) {
 			continue
 		}
+
 		if sig, err := s.signSet(r, now, incep, expir); err == nil {
 			m.Extra = append(m.Extra, sig)
 		}

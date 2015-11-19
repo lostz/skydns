@@ -28,7 +28,7 @@ type Config struct {
 	// bind to port(s) activated by systemd. If set to true, this overrides DnsAddr.
 	Systemd bool `json:"systemd,omitempty"`
 	// The domain SkyDNS is authoritative for, defaults to skydns.local.
-	Domain string `json:"domain,omitempty"`
+	Domain []string `json:"domain,omitempty"`
 	// Domain pointing to a key where service info is stored when being queried
 	// for local.dns.skydns.local.
 	Local string `json:"local,omitempty"`
@@ -67,8 +67,8 @@ type Config struct {
 	Verbose bool `json:"-"`
 
 	// some predefined string "constants"
-	localDomain string // "local.dns." + config.Domain
-	dnsDomain   string // "ns.dns". + config.Domain
+	localDomain []string // "local.dns." + config.Domain
+	dnsDomain   []string // "ns.dns". + config.Domain
 
 	// Stub zones support. Pointer to a map that we refresh when we see
 	// an update. Map contains domainname -> nameserver:port
@@ -82,11 +82,11 @@ func SetDefaults(config *Config) error {
 	if config.DnsAddr == "" {
 		config.DnsAddr = "127.0.0.1:53"
 	}
-	if config.Domain == "" {
-		config.Domain = "skydns.local."
+	if len(config.Domain) == 0 {
+		config.Domain = append(config.Domain, "skydns.local.")
 	}
 	if config.Hostmaster == "" {
-		config.Hostmaster = appendDomain("hostmaster", config.Domain)
+		config.Hostmaster = appendDomain("hostmaster", config.Domain[0])
 	}
 	// People probably don't know that SOA's email addresses cannot
 	// contain @-signs, replace them with dots
@@ -124,7 +124,11 @@ func SetDefaults(config *Config) error {
 			}
 		}
 	}
-	config.Domain = dns.Fqdn(strings.ToLower(config.Domain))
+	var tmp []string
+	for _, domain := range config.Domain {
+		tmp = append(tmp, dns.Fqdn(strings.ToLower(domain)))
+	}
+	config.Domain = tmp
 	if config.DNSSEC != "" {
 		// For some reason the + are replaces by spaces in etcd. Re-replace them
 		keyfile := strings.Replace(config.DNSSEC, " ", "+", -1)
@@ -132,16 +136,21 @@ func SetDefaults(config *Config) error {
 		if err != nil {
 			return err
 		}
-		if k.Header().Name != dns.Fqdn(config.Domain) {
-			return fmt.Errorf("ownername of DNSKEY must match SkyDNS domain")
+		for _, domain := range config.Domain {
+			if k.Header().Name != dns.Fqdn(domain) {
+				return fmt.Errorf("ownername of DNSKEY must match SkyDNS domain")
+
+			}
 		}
 		k.Header().Ttl = config.Ttl
 		config.PubKey = k
 		config.KeyTag = k.KeyTag()
 		config.PrivKey = p
 	}
-	config.localDomain = appendDomain("local.dns", config.Domain)
-	config.dnsDomain = appendDomain("ns.dns", config.Domain)
+	for _, domain := range config.Domain {
+		config.localDomain = append(config.localDomain, appendDomain("local.dns", domain))
+		config.dnsDomain = append(config.dnsDomain, appendDomain("ns.dns", domain))
+	}
 	stubmap := make(map[string][]string)
 	config.stub = &stubmap
 	return nil
