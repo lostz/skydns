@@ -15,9 +15,9 @@ import (
 
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/coreos/go-systemd/activation"
+	"github.com/lostz/skydns/cache"
+	"github.com/lostz/skydns/msg"
 	"github.com/miekg/dns"
-	"github.com/skynetservices/skydns/cache"
-	"github.com/skynetservices/skydns/msg"
 )
 
 const Version = "2.5.2c"

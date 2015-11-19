@@ -20,17 +20,17 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/miekg/dns"
 
-	backendetcd "github.com/skynetservices/skydns/backends/etcd"
-	"github.com/skynetservices/skydns/msg"
-	"github.com/skynetservices/skydns/server"
-	"github.com/skynetservices/skydns/stats"
+	backendetcd "github.com/lostz/skydns/backends/etcd"
+	"github.com/lostz/skydns/msg"
+	"github.com/lostz/skydns/server"
+	"github.com/lostz/skydns/stats"
 )
 
 var (
 	tlskey     = ""
 	tlspem     = ""
 	cacert     = ""
-	config     = &server.Config{ReadTimeout: 0, Domain: "", DnsAddr: "", DNSSEC: ""}
+	config     = &server.Config{ReadTimeout: 0, Domain: []string{}, DnsAddr: "", DNSSEC: ""}
 	nameserver = ""
 	machine    = ""
 	discover   = false
@@ -54,7 +54,7 @@ func boolEnv(key string, def bool) bool {
 }
 
 func init() {
-	flag.StringVar(&config.Domain, "domain", env("SKYDNS_DOMAIN", "skydns.local."), "domain to anchor requests to (SKYDNS_DOMAIN)")
+	//flag.StringVar(&config.Domain, "domain", env("SKYDNS_DOMAIN", "skydns.local."), "domain to anchor requests to (SKYDNS_DOMAIN)")
 	flag.StringVar(&config.DnsAddr, "addr", env("SKYDNS_ADDR", "127.0.0.1:53"), "ip:port to bind to (SKYDNS_ADDR)")
 	flag.StringVar(&nameserver, "nameservers", env("SKYDNS_NAMESERVERS", ""), "nameserver address(es) to forward (non-local) queries to e.g. 8.8.8.8:53,8.8.4.4:53")
 	flag.BoolVar(&config.NoRec, "no-rec", false, "do not provide a recursive service")
@@ -132,33 +132,6 @@ func main() {
 					} else {
 						// we can see an n == nil, probably when we can't connect to etcd.
 						log.Printf("skydns: etcd machine cluster update failed, sleeping %s + ~3s", duration)
-						time.Sleep(duration + (time.Duration(rand.Float32() * 3e9))) // Add some random.
-						duration *= 2
-						if duration > 32*time.Second {
-							duration = 32 * time.Second
-						}
-					}
-				}
-			}
-		}()
-	}
-
-	if stub {
-		s.UpdateStubZones()
-		go func() {
-			recv := make(chan *etcd.Response)
-			go client.Watch(msg.Path(config.Domain)+"/dns/stub/", 0, true, recv, nil)
-			duration := 1 * time.Second
-			for {
-				select {
-				case n := <-recv:
-					if n != nil {
-						s.UpdateStubZones()
-						log.Printf("skydns: stubzone update")
-						duration = 1 * time.Second // reset
-					} else {
-						// we can see an n == nil, probably when we can't connect to etcd.
-						log.Printf("skydns: stubzone update failed, sleeping %s + ~3s", duration)
 						time.Sleep(duration + (time.Duration(rand.Float32() * 3e9))) // Add some random.
 						duration *= 2
 						if duration > 32*time.Second {
