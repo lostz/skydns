@@ -88,20 +88,9 @@ func New(backend Backend, config *Config) *server {
 
 func (s *server) hasDomain(name string) bool {
 	for _, domain := range s.config.Domain {
-		if name == domain {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (s *server) hasSuffixDomain(name string) bool {
-	for _, domain := range s.config.Domain {
 		if strings.HasSuffix(name, domain) {
 			return true
 		}
-
 	}
 
 	return false
@@ -325,7 +314,7 @@ func (s *server) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 		return
 	}
 
-	if q.Qclass != dns.ClassCHAOS && !s.hasSuffixDomain(name) {
+	if q.Qclass != dns.ClassCHAOS && !s.hasDomain(name) {
 		resp := s.ServeDNSForward(w, req)
 		if resp != nil {
 			s.rcache.InsertMessage(cache.Key(q, dnssec, tcp), resp)
